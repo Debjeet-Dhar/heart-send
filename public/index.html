@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Heat Notifier 🔥</title>
+    <style>
+      body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #ff9a9e 0%, #fad0c4 100%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+}
+
+.container {
+    background: white;
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    width: 90%;
+    max-width: 400px;
+    text-align: center;
+}
+
+h1 {
+    color: #ff6b6b;
+    margin-bottom: 20px;
+}
+
+input {
+    width: 100%;
+    padding: 12px;
+    margin: 10px 0;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    font-size: 16px;
+}
+
+button {
+    background: #ff6b6b;
+    color: white;
+    border: none;
+    padding: 12px 25px;
+    border-radius: 8px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.3s;
+    margin-top: 10px;
+}
+
+button:hover {
+    background: #ff4757;
+    transform: translateY(-2px);
+}
+
+.user-info {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 10px;
+    margin: 20px 0;
+}
+
+.notification {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #ff6b6b;
+    color: white;
+    padding: 15px 25px;
+    border-radius: 50px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    display: none;
+    z-index: 100;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+.pulse {
+    animation: pulse 0.5s infinite;
+}
+    </style>
+</head>
+<body>
+    <div class="container" id="loginContainer">
+        <h1>Create Your Identity</h1>
+        <input type="text" id="usernameInput" placeholder="Your name">
+        <button onclick="registerUser()">Generate Code</button>
+    </div>
+
+    <div class="container" id="pairContainer" style="display:none">
+        <h1>Send Heat Notifications 🔥</h1>
+        
+        <div class="user-info">
+            <p>Your Code: <strong id="userCodeDisplay"></strong></p>
+            <p>Name: <strong id="userNameDisplay"></strong></p>
+        </div>
+
+        <div class="pair-section">
+            <input type="text" id="crushCodeInput" placeholder="Enter crush's code">
+            <button onclick="sendHeat()">Send Heat Pulse</button>
+        </div>
+
+        <div class="notification" id="notification"></div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script>
+      // Socket.IO connection
+const socket = io('https://heart-for-your-crush-production.up.railway.app/'); // Replace with your server URL
+
+// DOM Elements
+const loginContainer = document.getElementById('loginContainer');
+const pairContainer = document.getElementById('pairContainer');
+const usernameInput = document.getElementById('usernameInput');
+const userCodeDisplay = document.getElementById('userCodeDisplay');
+const userNameDisplay = document.getElementById('userNameDisplay');
+const crushCodeInput = document.getElementById('crushCodeInput');
+const notification = document.getElementById('notification');
+
+// User data
+let userCode = localStorage.getItem('userCode');
+let userName = localStorage.getItem('userName');
+
+// Check if user already registered
+if (userCode && userName) {
+    showPairInterface();
+}
+
+function registerUser() {
+    userName = usernameInput.value.trim();
+    if (!userName) {
+        showNotification("Please enter your name");
+        return;
+    }
+
+    // Generate permanent code if doesn't exist
+    if (!userCode) {
+        userCode = generateCode();
+        localStorage.setItem('userCode', userCode);
+        localStorage.setItem('userName', userName);
+    }
+
+    // Register with server
+    socket.emit('register', { code: userCode, name: userName });
+    showPairInterface();
+}
+
+function showPairInterface() {
+    loginContainer.style.display = 'none';
+    pairContainer.style.display = 'block';
+    userCodeDisplay.textContent = userCode;
+    userNameDisplay.textContent = userName;
+}
+
+function sendHeat() {
+    const crushCode = crushCodeInput.value.trim();
+    if (!crushCode) {
+        showNotification("Enter a code first");
+        return;
+    }
+
+    socket.emit('sendHeat', {
+        from: userCode,
+        to: crushCode,
+        name: userName
+    });
+
+    showNotification("Heat pulse sent! 🔥");
+    crushCodeInput.value = '';
+}
+
+// Show temporary notification
+function showNotification(msg) {
+    notification.textContent = msg;
+    notification.style.display = 'block';
+    setTimeout(() => {
+        notification.style.display = 'none';
+    }, 3000);
+}
+
+// Generate random 6-digit code
+function generateCode() {
+    return Math.random().toString(36).substring(2, 8).toUpperCase();
+}
+
+// Listen for incoming heat pulses
+socket.on('receiveHeat', (senderName) => {
+    showNotification(`${senderName} sent you heat! ❤️🔥`);
+    
+    // Visual feedback
+    document.body.classList.add('pulse');
+    setTimeout(() => {
+        document.body.classList.remove('pulse');
+    }, 500);
+    
+    // Vibrate if supported
+    if ('vibrate' in navigator) {
+        navigator.vibrate([200, 100, 200]);
+    }
+});
+    </script>
+    <script>
+      // Request notification permission on first interaction
+document.addEventListener('click', () => {
+  if ('Notification' in window && Notification.permission !== 'granted') {
+    Notification.requestPermission().then(permission => {
+      if (permission === 'granted') {
+        console.log('Notification permission granted');
+      }
+    });
+  }
+});
+
+// Modified notification function
+function showNotification(msg) {
+  // Browser notifications
+  if ('Notification' in window && Notification.permission === 'granted') {
+    new Notification('Heat notification to You 🔥', { 
+      body: msg,
+      icon: 'https://i.imgur.com/8Km9tLL.png' 
+    });
+  }
+  
+  // Fallback to in-app notification
+  const notification = document.getElementById('notification');
+  notification.textContent = msg;
+  notification.style.display = 'block';
+  setTimeout(() => notification.style.display = 'none', 3000);
+  
+  // Vibrate if supported
+  if ('vibrate' in navigator) {
+    navigator.vibrate([200, 100, 200, 100, 200]); // Longer vibration
+  }
+}
+    </script>
+</body>
+</html>
